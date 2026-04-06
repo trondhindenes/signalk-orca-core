@@ -1,5 +1,7 @@
 # signalk-orca-core
 
+[Github repo]https://github.com/trondhindenes/signalk-orca-core
+
 A [SignalK](https://signalk.org/) server plugin that ingests sensor data from an [Orca Core](https://www.orcamarine.com/) device via WebSocket and maps it to SignalK paths.
 
 > **Disclaimer:** This is an independent, community-developed plugin. It is **not** affiliated with, endorsed by, or supported by Orca Marine Systems (the makers of Orca Core and the Orca app). Use at your own risk.
@@ -20,9 +22,9 @@ Search for "signalk-orca-core" in the SignalK Appstore (Server > Appstore in the
 
 ### Manual / Development
 
+First, clone repo from https://github.com/trondhindenes/signalk-orca-core
+Then, in the cloned repo:
 ```bash
-git clone https://github.com/your-username/signalk-orca-core.git
-cd signalk-orca-core
 npm install
 npm run build
 npm link
@@ -83,7 +85,7 @@ The plugin maps the following Orca Core data to SignalK paths:
 
 MIT License
 
-Copyright (c) 2026
+Copyright (c) 2026 Trond Hindenes
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
