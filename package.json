@@ -1,6 +1,6 @@
 {
   "name": "signalk-orca-core",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "SignalK plugin to ingest data from Orca Core",
   "main": "plugin/index.js",
   "scripts": {
