@@ -1,0 +1,11 @@
+services:
+  signalk:
+    image: signalk/signalk-server:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - signalk-config:/home/node/.signalk
+      - ./:/home/node/.signalk/node_modules/signalk-orca-core
+
+volumes:
+  signalk-config:

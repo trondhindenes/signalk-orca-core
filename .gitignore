@@ -1,0 +1,7 @@
+node_modules/
+plugin/
+plans/*
+.claude/*
+.idea/
+.DS_Store
+*.log
