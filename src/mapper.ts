@@ -13,14 +13,13 @@ export function mapOrcaValues(
   const v = (key: string) => values[key]
   const keys = Object.keys(values)
 
-  /** Find the first key matching `prefix.*.suffix` and return its value */
+  /** Find the first key matching `prefix.<any segments>.suffix` and return its value */
   function firstMatch(prefix: string, suffix: string): { key: string, value: any } | undefined {
     const pat = `${prefix}.`
     const end = `.${suffix}`
     for (const k of keys) {
-      if (k.startsWith(pat) && k.endsWith(end)) {
-        const mid = k.slice(pat.length, k.length - end.length)
-        if (!mid.includes('.')) return { key: k, value: values[k] }
+      if (k.startsWith(pat) && k.endsWith(end) && k.length > pat.length + end.length) {
+        return { key: k, value: values[k] }
       }
     }
     return undefined
@@ -150,14 +149,16 @@ export function mapOrcaValues(
     emit(waterSpeed.key, 'navigation.speedThroughWater', waterSpeed.value)
   }
 
-  // Water temperature (device 35, instance 0)
-  if (v('environment.temperature.35.0.temperature') != null) {
-    emit('environment.temperature.35.0.temperature', 'environment.water.temperature', v('environment.temperature.35.0.temperature'))
+  // Water temperature (any device, any instance)
+  const waterTemp = firstMatch('environment.temperature', 'temperature')
+  if (waterTemp) {
+    emit(waterTemp.key, 'environment.water.temperature', waterTemp.value)
   }
 
-  // Rudder (device 11, instance 255)
-  if (v('steering.rudder.11.255.position') != null) {
-    emit('steering.rudder.11.255.position', 'steering.rudderAngle', v('steering.rudder.11.255.position'))
+  // Rudder (any device, any instance)
+  const rudder = firstMatch('steering.rudder', 'position')
+  if (rudder) {
+    emit(rudder.key, 'steering.rudderAngle', rudder.value)
   }
 
   // --- Electrical (device 254) ---

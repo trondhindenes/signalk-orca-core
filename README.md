@@ -75,10 +75,10 @@ The plugin maps the following Orca Core data to SignalK paths:
 | `environment.wind.254.2.*` | `environment.wind.speedApparent` / `angleApparent` |
 | `environment.wind.254.0.*` | `environment.wind.speedTrue` / `angleTrueGround` |
 | `environment.wind.254.3.*` | `environment.wind.angleTrueWater` |
-| `environment.depth.35.*` | `environment.depth.belowTransducer` |
-| `environment.waterSpeed.35.speed` | `navigation.speedThroughWater` |
-| `environment.temperature.35.0.*` | `environment.water.temperature` |
-| `steering.rudder.11.255.position` | `steering.rudderAngle` |
+| `environment.depth.<any>.*` | `environment.depth.belowTransducer` / `transducerToKeel` |
+| `environment.waterSpeed.<any>.speed` | `navigation.speedThroughWater` |
+| `environment.temperature.<any>.<any>.*` | `environment.water.temperature` |
+| `steering.rudder.<any>.<any>.position` | `steering.rudderAngle` |
 | `battery.254.0.voltage` | `electrical.batteries.0.voltage` |
 
 ## License

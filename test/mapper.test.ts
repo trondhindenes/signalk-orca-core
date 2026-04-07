@@ -158,4 +158,32 @@ describe('mapOrcaValues', () => {
       value: 9.0
     })
   })
+
+  it.each([
+    { deviceId: 35, instance: 0, label: 'device 35 instance 0' },
+    { deviceId: 42, instance: 1, label: 'device 42 instance 1' },
+    { deviceId: 99, instance: 0, label: 'device 99 instance 0' },
+  ])('maps water temperature from $label', ({ deviceId, instance }) => {
+    const result = mapOrcaValues({
+      [`environment.temperature.${deviceId}.${instance}.temperature`]: 288.15,
+    })
+    expect(result).toContainEqual({
+      path: 'environment.water.temperature',
+      value: 288.15
+    })
+  })
+
+  it.each([
+    { deviceId: 11, instance: 255, label: 'device 11 instance 255' },
+    { deviceId: 20, instance: 0, label: 'device 20 instance 0' },
+    { deviceId: 5, instance: 128, label: 'device 5 instance 128' },
+  ])('maps rudder angle from $label', ({ deviceId, instance }) => {
+    const result = mapOrcaValues({
+      [`steering.rudder.${deviceId}.${instance}.position`]: 0.1,
+    })
+    expect(result).toContainEqual({
+      path: 'steering.rudderAngle',
+      value: 0.1
+    })
+  })
 })
