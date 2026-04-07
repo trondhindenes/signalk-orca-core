@@ -11,6 +11,19 @@ export function mapOrcaValues(
 ): PathValue[] {
   const result: PathValue[] = []
   const v = (key: string) => values[key]
+  const keys = Object.keys(values)
+
+  /** Find the first key matching `prefix.<any segments>.suffix` and return its value */
+  function firstMatch(prefix: string, suffix: string): { key: string, value: any } | undefined {
+    const pat = `${prefix}.`
+    const end = `.${suffix}`
+    for (const k of keys) {
+      if (k.startsWith(pat) && k.endsWith(end) && k.length > pat.length + end.length) {
+        return { key: k, value: values[k] }
+      }
+    }
+    return undefined
+  }
 
   function emit(orcaKeys: string | string[], skPath: string, value: any) {
     result.push({ path: skPath, value })
@@ -120,27 +133,32 @@ export function mapOrcaValues(
 
   // --- Sensor-only data (no device 254 equivalent) ---
 
-  // Depth (device 35)
-  if (v('environment.depth.35.belowTransducer') != null) {
-    emit('environment.depth.35.belowTransducer', 'environment.depth.belowTransducer', v('environment.depth.35.belowTransducer'))
+  // Depth (any device)
+  const depthBelow = firstMatch('environment.depth', 'belowTransducer')
+  if (depthBelow) {
+    emit(depthBelow.key, 'environment.depth.belowTransducer', depthBelow.value)
   }
-  if (v('environment.depth.35.offset') != null) {
-    emit('environment.depth.35.offset', 'environment.depth.transducerToKeel', v('environment.depth.35.offset'))
-  }
-
-  // Water speed (device 35)
-  if (v('environment.waterSpeed.35.speed') != null) {
-    emit('environment.waterSpeed.35.speed', 'navigation.speedThroughWater', v('environment.waterSpeed.35.speed'))
+  const depthOffset = firstMatch('environment.depth', 'offset')
+  if (depthOffset) {
+    emit(depthOffset.key, 'environment.depth.transducerToKeel', depthOffset.value)
   }
 
-  // Water temperature (device 35, instance 0)
-  if (v('environment.temperature.35.0.temperature') != null) {
-    emit('environment.temperature.35.0.temperature', 'environment.water.temperature', v('environment.temperature.35.0.temperature'))
+  // Water speed (any device)
+  const waterSpeed = firstMatch('environment.waterSpeed', 'speed')
+  if (waterSpeed) {
+    emit(waterSpeed.key, 'navigation.speedThroughWater', waterSpeed.value)
   }
 
-  // Rudder (device 11, instance 255)
-  if (v('steering.rudder.11.255.position') != null) {
-    emit('steering.rudder.11.255.position', 'steering.rudderAngle', v('steering.rudder.11.255.position'))
+  // Water temperature (any device, any instance)
+  const waterTemp = firstMatch('environment.temperature', 'temperature')
+  if (waterTemp) {
+    emit(waterTemp.key, 'environment.water.temperature', waterTemp.value)
+  }
+
+  // Rudder (any device, any instance)
+  const rudder = firstMatch('steering.rudder', 'position')
+  if (rudder) {
+    emit(rudder.key, 'steering.rudderAngle', rudder.value)
   }
 
   // --- Electrical (device 254) ---

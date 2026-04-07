@@ -1,7 +1,7 @@
 import { Plugin, ServerAPI } from '@signalk/server-api'
 import WebSocket from 'ws'
-import { mapOrcaValues } from './mapper'
 import { discoverOrcaCore } from './discovery'
+import { handleOrcaMessage, OrcaMessage } from './handler'
 
 interface OrcaCoreConfig {
   autoDiscover: boolean
@@ -11,14 +11,6 @@ interface OrcaCoreConfig {
   sensorInterval: number
   aisInterval: number
   syncPingInterval: number
-}
-
-interface OrcaMessage {
-  event_type?: string
-  context?: string
-  timestamp?: string
-  devices?: Record<string, string>
-  values?: Record<string, any>
 }
 
 module.exports = (app: ServerAPI): Plugin => {
@@ -39,21 +31,7 @@ module.exports = (app: ServerAPI): Plugin => {
     return `ws://${config.host}:${config.port}/v1/sync`
   }
 
-  function handleOrcaMessage(data: OrcaMessage) {
-    const values = data.values
-    if (!values || Object.keys(values).length === 0) return
-
-    const pathValues = mapOrcaValues(values, app.debug)
-    if (pathValues.length === 0) return
-
-    app.handleMessage('signalk-orca-core', {
-      context: 'vessels.self' as any,
-      updates: [{
-        timestamp: data.timestamp as any,
-        values: pathValues as any
-      }]
-    })
-  }
+  const sink = { handleMessage: app.handleMessage.bind(app), debug: app.debug.bind(app) }
 
   function connectWebSocket(
     name: string,
@@ -81,7 +59,7 @@ module.exports = (app: ServerAPI): Plugin => {
     ws.on('message', (raw: WebSocket.Data) => {
       try {
         const data: OrcaMessage = JSON.parse(raw.toString())
-        handleOrcaMessage(data)
+        handleOrcaMessage(data, sink)
       } catch (e) {
         app.debug(`[${name}] Failed to parse message: ${e}`)
       }
