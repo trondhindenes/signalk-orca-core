@@ -11,6 +11,20 @@ export function mapOrcaValues(
 ): PathValue[] {
   const result: PathValue[] = []
   const v = (key: string) => values[key]
+  const keys = Object.keys(values)
+
+  /** Find the first key matching `prefix.*.suffix` and return its value */
+  function firstMatch(prefix: string, suffix: string): { key: string, value: any } | undefined {
+    const pat = `${prefix}.`
+    const end = `.${suffix}`
+    for (const k of keys) {
+      if (k.startsWith(pat) && k.endsWith(end)) {
+        const mid = k.slice(pat.length, k.length - end.length)
+        if (!mid.includes('.')) return { key: k, value: values[k] }
+      }
+    }
+    return undefined
+  }
 
   function emit(orcaKeys: string | string[], skPath: string, value: any) {
     result.push({ path: skPath, value })
@@ -120,17 +134,20 @@ export function mapOrcaValues(
 
   // --- Sensor-only data (no device 254 equivalent) ---
 
-  // Depth (device 35)
-  if (v('environment.depth.35.belowTransducer') != null) {
-    emit('environment.depth.35.belowTransducer', 'environment.depth.belowTransducer', v('environment.depth.35.belowTransducer'))
+  // Depth (any device)
+  const depthBelow = firstMatch('environment.depth', 'belowTransducer')
+  if (depthBelow) {
+    emit(depthBelow.key, 'environment.depth.belowTransducer', depthBelow.value)
   }
-  if (v('environment.depth.35.offset') != null) {
-    emit('environment.depth.35.offset', 'environment.depth.transducerToKeel', v('environment.depth.35.offset'))
+  const depthOffset = firstMatch('environment.depth', 'offset')
+  if (depthOffset) {
+    emit(depthOffset.key, 'environment.depth.transducerToKeel', depthOffset.value)
   }
 
-  // Water speed (device 35)
-  if (v('environment.waterSpeed.35.speed') != null) {
-    emit('environment.waterSpeed.35.speed', 'navigation.speedThroughWater', v('environment.waterSpeed.35.speed'))
+  // Water speed (any device)
+  const waterSpeed = firstMatch('environment.waterSpeed', 'speed')
+  if (waterSpeed) {
+    emit(waterSpeed.key, 'navigation.speedThroughWater', waterSpeed.value)
   }
 
   // Water temperature (device 35, instance 0)

@@ -44,6 +44,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Test
+        run: npm test
+
       - name: Publish to npm
         if: steps.version.outputs.isRelease == 'true'
         run: npm publish --access public
