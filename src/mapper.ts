@@ -3,7 +3,65 @@ export interface PathValue {
   value: any
 }
 
+export interface AisDelta {
+  context: string
+  values: PathValue[]
+}
+
 type DebugFn = (msg: string) => void
+
+const AIS_KEY_REGEX = /^ais\.x\.(\d+)\.position\.(.+)$/
+
+export function mapAisValues(
+  values: Record<string, any>,
+  debug?: DebugFn
+): AisDelta[] {
+  const byMmsi = new Map<string, Record<string, any>>()
+  for (const key of Object.keys(values)) {
+    const m = AIS_KEY_REGEX.exec(key)
+    if (!m) continue
+    const [, mmsi, field] = m
+    let bucket = byMmsi.get(mmsi)
+    if (!bucket) {
+      bucket = {}
+      byMmsi.set(mmsi, bucket)
+    }
+    bucket[field] = values[key]
+  }
+
+  const result: AisDelta[] = []
+  for (const [mmsi, f] of byMmsi) {
+    const pv: PathValue[] = []
+    pv.push({ path: '', value: { mmsi } })
+
+    if (f.latitude != null && f.longitude != null) {
+      pv.push({ path: 'navigation.position', value: { latitude: f.latitude, longitude: f.longitude } })
+    }
+    if (f.COG != null) pv.push({ path: 'navigation.courseOverGroundTrue', value: f.COG })
+    if (f.SOG != null) pv.push({ path: 'navigation.speedOverGround', value: f.SOG })
+    if (f.headingTrue != null) pv.push({ path: 'navigation.headingTrue', value: f.headingTrue })
+    if (f.name != null) pv.push({ path: '', value: { name: f.name } })
+    if (f.callsign != null) pv.push({ path: 'communication.callsignVhf', value: f.callsign })
+    if (f.vesselType != null) pv.push({ path: 'design.aisShipType', value: { id: f.vesselType } })
+    if (f.beam != null) pv.push({ path: 'design.beam', value: f.beam })
+    if (f.length != null) pv.push({ path: 'design.length', value: { overall: f.length } })
+    if (f.draft != null) pv.push({ path: 'design.draft', value: { current: f.draft } })
+    if (f.destination != null) pv.push({ path: 'navigation.destination.commonName', value: f.destination })
+    if (f.eta != null) pv.push({ path: 'navigation.destination.eta', value: f.eta })
+    if (f.class != null) pv.push({ path: 'sensors.ais.class', value: f.class })
+
+    if (debug) debug(`AIS ${mmsi} → ${pv.length} values`)
+
+    if (pv.length > 1) {
+      result.push({
+        context: `vessels.urn:mrn:imo:mmsi:${mmsi}`,
+        values: pv
+      })
+    }
+  }
+
+  return result
+}
 
 export function mapOrcaValues(
   values: Record<string, any>,

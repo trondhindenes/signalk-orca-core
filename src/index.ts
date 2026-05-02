@@ -9,6 +9,7 @@ interface OrcaCoreConfig {
   host: string
   port: number
   sensorInterval: number
+  enableAis: boolean
   aisInterval: number
   syncPingInterval: number
 }
@@ -31,7 +32,7 @@ module.exports = (app: ServerAPI): Plugin => {
   }
 
   function buildAisUrl(config: OrcaCoreConfig): string {
-    return `ws://${config.host}:${config.port}/v1/sensors/full?interval=${config.aisInterval}&ns=ais&enableUnknownSources`
+    return `ws://${config.host}:${config.port}/v1/sensors/full?interval=${config.aisInterval * 1000}&ns=ais&enableUnknownSources`
   }
 
   function buildSyncUrl(config: OrcaCoreConfig): string {
@@ -133,19 +134,33 @@ module.exports = (app: ServerAPI): Plugin => {
       stopped = false
       cancelDiscovery = undefined
 
+      let aisInterval = settings.aisInterval || 5
+      if (aisInterval > 120) {
+        const converted = Math.round(aisInterval / 1000)
+        app.debug(`[start] Migrating legacy aisInterval ${aisInterval}ms → ${converted}s`)
+        aisInterval = converted
+        app.savePluginOptions({ ...settings, aisInterval: converted }, (err) => {
+          if (err) app.error(`[start] Failed to persist migrated aisInterval: ${err.message}`)
+          else app.debug(`[start] Persisted migrated aisInterval=${converted}`)
+        })
+      }
+
       const config: OrcaCoreConfig = {
         autoDiscover: settings.autoDiscover !== undefined ? settings.autoDiscover : true,
         discoveryTimeout: settings.discoveryTimeout || 30,
         host: settings.host,
         port: settings.port || 8089,
         sensorInterval: settings.sensorInterval || 200,
-        aisInterval: settings.aisInterval || 5000,
+        enableAis: settings.enableAis !== undefined ? settings.enableAis : true,
+        aisInterval,
         syncPingInterval: settings.syncPingInterval || 45
       }
 
       const connect = (cfg: OrcaCoreConfig) => {
         connectWebSocket('SENSOR', () => buildSensorUrl(cfg), cfg, false)
-        connectWebSocket('AIS', () => buildAisUrl(cfg), cfg, false)
+        if (cfg.enableAis) {
+          connectWebSocket('AIS', () => buildAisUrl(cfg), cfg, false)
+        }
         connectWebSocket('SYNC', () => buildSyncUrl(cfg), cfg, true)
         if (cfg.autoDiscover) startRediscovery(cfg)
       }
@@ -235,10 +250,17 @@ module.exports = (app: ServerAPI): Plugin => {
           title: 'Sensor Update Interval (ms)',
           default: 200
         },
+        enableAis: {
+          type: 'boolean',
+          title: 'Enable AIS data',
+          default: true
+        },
         aisInterval: {
           type: 'number',
-          title: 'AIS Update Interval (ms)',
-          default: 5000
+          title: 'AIS Update Interval (seconds)',
+          default: 5,
+          minimum: 1,
+          maximum: 120
         },
         syncPingInterval: {
           type: 'number',

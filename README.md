@@ -44,7 +44,8 @@ Restart SignalK server, then enable the plugin in Server > Plugin Config.
 | Host | *(empty)* | Fallback host (or primary when auto-discover is off) |
 | Port | `8089` | Orca Core WebSocket port |
 | Sensor Interval | `200` ms | Sensor data update interval |
-| AIS Interval | `5000` ms | AIS data update interval |
+| Enable AIS data | `true` | Subscribe to the AIS stream and emit per-target SignalK deltas |
+| AIS Interval | `5` s | AIS data update interval (whole seconds) |
 | Sync Ping Interval | `45` s | Keep-alive ping interval on sync connection |
 
 ## Docker
@@ -80,6 +81,26 @@ The plugin maps the following Orca Core data to SignalK paths:
 | `environment.temperature.<any>.<any>.*` | `environment.water.temperature` |
 | `steering.rudder.<any>.<any>.position` | `steering.rudderAngle` |
 | `battery.254.0.voltage` | `electrical.batteries.0.voltage` |
+
+### AIS targets
+
+Each AIS target is emitted as a separate SignalK vessel under context `vessels.urn:mrn:imo:mmsi:<MMSI>`. Mapping (Orca `ais.x.<MMSI>.position.*` → SignalK):
+
+| Orca field | SignalK path |
+|---|---|
+| `latitude` + `longitude` | `navigation.position` |
+| `COG` | `navigation.courseOverGroundTrue` |
+| `SOG` | `navigation.speedOverGround` |
+| `headingTrue` | `navigation.headingTrue` |
+| `name` | root (`{ name }`) |
+| `callsign` | `communication.callsignVhf` |
+| `vesselType` | `design.aisShipType` (`{ id }`) |
+| `beam` | `design.beam` |
+| `length` | `design.length` (`{ overall }`) |
+| `draft` | `design.draft` (`{ current }`) |
+| `destination` | `navigation.destination.commonName` |
+| `eta` | `navigation.destination.eta` |
+| `class` | `sensors.ais.class` |
 
 ## License
 
