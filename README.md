@@ -46,7 +46,7 @@ Restart SignalK server, then enable the plugin in Server > Plugin Config.
 | Sensor Interval | `200` ms | Sensor data update interval |
 | Enable AIS data | `true` | Subscribe to the AIS stream and emit per-target SignalK deltas |
 | AIS Interval | `5` s | AIS data update interval (whole seconds) |
-| Sync Ping Interval | `45` s | Keep-alive ping interval on sync connection |
+| Sync Ping Interval | `45` s | Keep-alive ping interval on sync connection (not normally changed) |
 
 ## Docker
 
