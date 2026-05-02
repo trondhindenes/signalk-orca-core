@@ -13,10 +13,17 @@ interface OrcaCoreConfig {
   syncPingInterval: number
 }
 
+const RECONNECT_DELAY_MS = 5000
+const REDISCOVERY_INTERVAL_MS = 30000
+const REDISCOVERY_TIMEOUT_MS = 5000
+
 module.exports = (app: ServerAPI): Plugin => {
-  const sockets: WebSocket[] = []
+  const sockets = new Set<WebSocket>()
+  const reconnectTimers = new Set<ReturnType<typeof setTimeout>>()
   let pingTimer: ReturnType<typeof setInterval> | undefined
+  let rediscoveryTimer: ReturnType<typeof setInterval> | undefined
   let cancelDiscovery: (() => void) | undefined
+  let discoveryInProgress = false
   let stopped = false
 
   function buildSensorUrl(config: OrcaCoreConfig): string {
@@ -33,21 +40,33 @@ module.exports = (app: ServerAPI): Plugin => {
 
   const sink = { handleMessage: app.handleMessage.bind(app), debug: app.debug.bind(app) }
 
+  function scheduleReconnect(name: string, buildUrl: () => string, config: OrcaCoreConfig, ping: boolean) {
+    if (stopped) return
+    app.debug(`[${name}] Reconnecting in ${RECONNECT_DELAY_MS}ms`)
+    const timer = setTimeout(() => {
+      reconnectTimers.delete(timer)
+      if (!stopped) connectWebSocket(name, buildUrl, config, ping)
+    }, RECONNECT_DELAY_MS)
+    reconnectTimers.add(timer)
+  }
+
   function connectWebSocket(
     name: string,
-    url: string,
+    buildUrl: () => string,
     config: OrcaCoreConfig,
     ping: boolean
   ) {
+    const url = buildUrl()
     app.debug(`[${name}] Connecting to ${url}`)
     const ws = new WebSocket(url)
-    sockets.push(ws)
+    sockets.add(ws)
 
     ws.on('open', () => {
       app.debug(`[${name}] Connected`)
       app.setPluginStatus(`Connected to Orca Core`)
 
       if (ping) {
+        if (pingTimer) clearInterval(pingTimer)
         pingTimer = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ cmd: 'ping' }))
@@ -67,12 +86,42 @@ module.exports = (app: ServerAPI): Plugin => {
 
     ws.on('close', () => {
       app.debug(`[${name}] Connection closed`)
+      sockets.delete(ws)
+      if (ping && pingTimer) {
+        clearInterval(pingTimer)
+        pingTimer = undefined
+      }
+      scheduleReconnect(name, buildUrl, config, ping)
     })
 
     ws.on('error', (err: Error) => {
       app.error(`[${name}] WebSocket error: ${err.message}`)
       app.setPluginError(`[${name}] ${err.message}`)
     })
+  }
+
+  function startRediscovery(config: OrcaCoreConfig) {
+    if (rediscoveryTimer) clearInterval(rediscoveryTimer)
+    rediscoveryTimer = setInterval(() => {
+      if (stopped || discoveryInProgress) return
+      if (reconnectTimers.size === 0) return
+
+      app.debug(`[rediscovery] Connection(s) pending reconnect, running mDNS scan`)
+      discoveryInProgress = true
+      const discovery = discoverOrcaCore(REDISCOVERY_TIMEOUT_MS, app.debug)
+      cancelDiscovery = discovery.cancel
+      discovery.promise.then((result) => {
+        discoveryInProgress = false
+        cancelDiscovery = undefined
+        if (stopped || !result) return
+        if (result.host !== config.host || result.port !== config.port) {
+          app.debug(`[rediscovery] Host changed: ${config.host}:${config.port} → ${result.host}:${result.port}`)
+          app.setPluginStatus(`Rediscovered Orca Core at ${result.host}`)
+          config.host = result.host
+          config.port = result.port
+        }
+      })
+    }, REDISCOVERY_INTERVAL_MS)
   }
 
   const plugin: Plugin = {
@@ -95,9 +144,10 @@ module.exports = (app: ServerAPI): Plugin => {
       }
 
       const connect = (cfg: OrcaCoreConfig) => {
-        connectWebSocket('SENSOR', buildSensorUrl(cfg), cfg, false)
-        connectWebSocket('AIS', buildAisUrl(cfg), cfg, false)
-        connectWebSocket('SYNC', buildSyncUrl(cfg), cfg, true)
+        connectWebSocket('SENSOR', () => buildSensorUrl(cfg), cfg, false)
+        connectWebSocket('AIS', () => buildAisUrl(cfg), cfg, false)
+        connectWebSocket('SYNC', () => buildSyncUrl(cfg), cfg, true)
+        if (cfg.autoDiscover) startRediscovery(cfg)
       }
 
       if (!config.autoDiscover && !config.host) {
@@ -140,6 +190,12 @@ module.exports = (app: ServerAPI): Plugin => {
         cancelDiscovery()
         cancelDiscovery = undefined
       }
+      for (const t of reconnectTimers) clearTimeout(t)
+      reconnectTimers.clear()
+      if (rediscoveryTimer) {
+        clearInterval(rediscoveryTimer)
+        rediscoveryTimer = undefined
+      }
       if (pingTimer) {
         clearInterval(pingTimer)
         pingTimer = undefined
@@ -147,7 +203,7 @@ module.exports = (app: ServerAPI): Plugin => {
       for (const ws of sockets) {
         ws.close()
       }
-      sockets.length = 0
+      sockets.clear()
     },
 
     schema: {
